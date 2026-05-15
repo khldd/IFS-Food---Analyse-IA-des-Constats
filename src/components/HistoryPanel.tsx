@@ -10,10 +10,14 @@ interface Props {
   onClear: () => void;
 }
 
-const CRITICITE_DOT: Record<string, string> = {
-  Critique: 'bg-red-500',
-  Majeure:  'bg-orange-500',
-  Mineure:  'bg-yellow-400',
+const GRADE_DOT: Record<string, string> = {
+  D:       'bg-yellow-400',
+  Majeure: 'bg-red-500',
+};
+
+const GRADE_LABELS: Record<string, string> = {
+  D:       'D maintenu',
+  Majeure: 'Majeure',
 };
 
 export default function HistoryPanel({ history, loading, selected, onSelect, onClear }: Props) {
@@ -30,7 +34,7 @@ export default function HistoryPanel({ history, loading, selected, onSelect, onC
           <h2 className="text-sm font-semibold text-gray-700">Historique</h2>
           {!loading && (
             <p className="text-xs text-gray-400 mt-0.5">
-              {history.length} analyse{history.length !== 1 ? 's' : ''}
+              {history.length} observation{history.length !== 1 ? 's' : ''}
             </p>
           )}
         </div>
@@ -55,14 +59,14 @@ export default function HistoryPanel({ history, loading, selected, onSelect, onC
         ) : history.length === 0 ? (
           <div className="px-4 py-8 text-center">
             <p className="text-sm text-gray-400">Aucune analyse pour l&apos;instant</p>
-            <p className="text-xs text-gray-300 mt-1">Soumettez un constat pour commencer</p>
+            <p className="text-xs text-gray-300 mt-1">Soumettez une observation pour commencer</p>
           </div>
         ) : (
           <ul className="divide-y divide-gray-100">
             {history.map((item) => {
               const isSelected = selected?.id === item.id;
-              const dotColor = item.criticite
-                ? (CRITICITE_DOT[item.criticite] ?? 'bg-gray-300')
+              const dotColor = item.grade
+                ? (GRADE_DOT[item.grade] ?? 'bg-gray-300')
                 : 'bg-gray-300';
               const date = new Date(item.created_at).toLocaleString('fr-FR', {
                 day: '2-digit', month: 'short',
@@ -80,24 +84,18 @@ export default function HistoryPanel({ history, loading, selected, onSelect, onC
                     <div className="flex items-center gap-2 mb-1">
                       <span className={`w-2 h-2 rounded-full shrink-0 ${dotColor}`} />
                       <span className="text-xs text-gray-400 truncate flex-1">{date}</span>
-                      {item.score_risque !== null && (
-                        <span className="text-xs font-medium text-gray-500">
-                          {item.score_risque}/10
-                        </span>
-                      )}
                     </div>
-                    {item.scope && (
-                      <p className="text-xs text-blue-600 mb-0.5 truncate">{item.scope}</p>
+                    {item.perimetre && (
+                      <p className="text-xs text-blue-600 mb-0.5 truncate">{item.perimetre}</p>
                     )}
                     <p className="text-xs text-gray-700 line-clamp-2 leading-relaxed">
-                      {item.constat}
+                      {item.observation}
                     </p>
-                    {item.criticite && (
+                    {item.grade && (
                       <p className={`text-xs font-medium mt-1 ${
-                        item.criticite === 'Critique' ? 'text-red-600' :
-                        item.criticite === 'Majeure'  ? 'text-orange-600' : 'text-yellow-600'
+                        item.grade === 'Majeure' ? 'text-red-600' : 'text-yellow-600'
                       }`}>
-                        {item.criticite}
+                        {GRADE_LABELS[item.grade] ?? item.grade}
                       </p>
                     )}
                   </button>

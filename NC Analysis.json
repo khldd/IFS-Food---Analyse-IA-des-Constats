@@ -1,0 +1,762 @@
+{
+  "name": "NC Analysis",
+  "nodes": [
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "12wcExllCOmhPNOdBDbpBUpry5uHK0yBHZ54FMmXS6SY",
+          "mode": "list",
+          "cachedResultName": "Extraction du portail IFS avec Scopes",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/12wcExllCOmhPNOdBDbpBUpry5uHK0yBHZ54FMmXS6SY/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1713674713,
+          "mode": "list",
+          "cachedResultName": "Tabelle1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/12wcExllCOmhPNOdBDbpBUpry5uHK0yBHZ54FMmXS6SY/edit#gid=1713674713"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "AI Analysis"
+            },
+            {
+              "lookupColumn": "NCType",
+              "lookupValue": "D"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        128,
+        80
+      ],
+      "id": "4d5debcc-24e1-4dbe-a873-d1edc64d9bf6",
+      "name": "Read All Rows from Sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "NO5H2LFFNiWUelWy",
+          "name": "snap"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "12wcExllCOmhPNOdBDbpBUpry5uHK0yBHZ54FMmXS6SY",
+          "mode": "list",
+          "cachedResultName": "Extraction du portail IFS avec Scopes",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/12wcExllCOmhPNOdBDbpBUpry5uHK0yBHZ54FMmXS6SY/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1713674713,
+          "mode": "list",
+          "cachedResultName": "Tabelle1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/12wcExllCOmhPNOdBDbpBUpry5uHK0yBHZ54FMmXS6SY/edit#gid=1713674713"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "row_number": "={{ $('Loop Over Items').item.json.row_number }}",
+            "AI Analysis": "={{ $('analyze').item.json.output.reasoning }}",
+            "diff": "={{ $json.output.diff }}",
+            "NC_No": "={{ $('Loop Over Items').item.json.NC_No }}"
+          },
+          "matchingColumns": [
+            "NC_No"
+          ],
+          "schema": [
+            {
+              "id": "mand_No",
+              "displayName": "mand_No",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "mYear",
+              "displayName": "mYear",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "NC_Numb",
+              "displayName": "NC_Numb",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Standard",
+              "displayName": "Standard",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "AuditType",
+              "displayName": "AuditType",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Observation",
+              "displayName": "Observation",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "NC_No",
+              "displayName": "NC_No",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "NCType",
+              "displayName": "NCType",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "ReqNumb",
+              "displayName": "ReqNumb",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "ReqText",
+              "displayName": "ReqText",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "scope_nr",
+              "displayName": "scope_nr",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "scope_txt",
+              "displayName": "scope_txt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Perimetre",
+              "displayName": "Perimetre",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "scope",
+              "displayName": "scope",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "TV remarq",
+              "displayName": "TV remarq",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "AI Analysis",
+              "displayName": "AI Analysis",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "diff",
+              "displayName": "diff",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1952,
+        240
+      ],
+      "id": "7aef5c31-e418-4b1b-8271-78692ef82201",
+      "name": "Update Sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "NO5H2LFFNiWUelWy",
+          "name": "snap"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        352,
+        80
+      ],
+      "id": "262bbdc0-7036-4d50-b731-23232949d70b",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3-flash-preview",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        1264,
+        464
+      ],
+      "id": "5919a795-dd17-41e4-bce7-c28636a0c668",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "ulvdlMde8x03S5ao",
+          "name": "SnapLabs"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"reasoning\": \"1. **Analyse du Risque lié au Scope :** ...\\n\\n2. **Arbitrage technique (D vs Majeure) :**\\n- ...\\n- ...\\n- ...\\n\\n3. **Conclusion :** Ce manquement...\",\n  \"grade\": \"D\"\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        1392,
+        464
+      ],
+      "id": "29c323ff-7860-4bc9-9db8-9889806bc620",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"diff\": \"L'IA a bien identifié le risque lié au nettoyage, mais n'a pas souligné le manque de preuves de validation mentionné par l'auditeur.\"\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        1680,
+        464
+      ],
+      "id": "cdd0191d-dd03-485e-a774-aa3e8e9a1db0",
+      "name": "Structured Output Parser1"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=### DONNÉES D'ENTRÉE\n- **Exigence :** {{ $('Loop Over Items').item.json.ReqText }}\n- **Périmètre (Scope) :** {{ $('Loop Over Items').item.json.Perimetre }}\n- **Observation de l'Auditeur :** {{ $('Loop Over Items').item.json.Observation }}\n\nAnalyse cette observation en utilisant STRICTEMENT le format markdown avec les 3 sections numérotées.\n",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "=### RÔLE\nTu es un Expert en Conformité IFS Food v8, en Europe. Ta mission est d'agir en tant que réviseur technique pour arbitrer des « observation » d'audit initialement notées en \"D\". chaque observation est liée à un périmètre d’audit, le process decrit dans le périmètre a une conséquence directe avec le risque et dangers identifié dans l’observation.  qui doit etre pris en compte comme contexte.  \n### OBJECTIF DE L'ANALYSE\nDéterminer si la note \"D\" est appropriée ou si l'observation doit être requalifiée en \"Non-conformité Majeure\" en fonction du risque résiduel pour la sécurité alimentaire, qualité, légalité et/ou authenticité du produit. \n\n### CONTEXTE TECHNIQUE\n1. **Scope:** C'est le cadre de fabrication. Tout manquement doit être analysé à travers le prisme des dangers (biologiques, chimiques, physiques) spécifiques à ce périmètre.\n2. **Définition D (Not Implemented) :** L'exigence du standards IFS est absente ou non appliquée, mais n'entraîne pas de rupture immédiate de la sécurité alimentaire.\n3. **Définition MAJEURE :** Une non-conformité majeure est une défaillance significative démontrant un manquement substantiel aux exigences du référentiel IFS Food, incluant notamment, sans s’y limiter, les exigences relatives à la sécurité des aliments et/ou aux obligations légales applicables dans les pays de production et/ou de mise sur le marché.\nElle est caractérisée par au moins l’un des critères suivants :\n1.\tManquement substantiel : non-respect d’une exigence avec un impact potentiel ou avéré sur la conformité du système, y compris sur la sécurité des aliments et/ou la conformité réglementaire/légale.\n2.\tPerte de maîtrise d’un procédé : situation indiquant que le procédé n’est plus contrôlé (ou que les mesures de maîtrise ne sont pas efficacement mises en œuvre), susceptible d’affecter la sécurité des aliments.\nIndicateurs attendus pour conclure “majeure” \n•\tExistence d’éléments probants montrant une rupture du système (application non conforme, contrôle non réalisé, critères non respectés, actions non efficaces).\n•\tRisque de sécurité des aliments et/ou de non-conformité légale plausible compte tenu du contexte produit/procédé.\n•\tMaîtrise insuffisante : absence, non-application ou inefficacité des PRP/OPRP/CCP (selon le système en place) ou des contrôles clés.\n.\n\n### MÉTHODOLOGIE D'ÉVALUATION\nPour chaque observation soumise, tu dois suivre ce raisonnement :\n1. **Analyse du Risque lié au Scope :** Compte tenu du périmètre de fabrication, quel est le danger principal si cette exigence n'est pas respectée ?\n2. **Arbitrage D vs Majeure :**\n   - Si l'absence (D) crée un danger direct, immédiat et non maîtrisé pour la santé du consommateur la quélité du produit, ou la légalité du produit : **Requalifier en MAJEURE**.\n   - Si l'absence est un manquement administratif ou structurel sans impact direct sur la sécurité immédiate du lot : **Maintenir en D**.\n3. **Justification Constructive :** Rédige une explication technique concise expliquant pourquoi la note est maintenue ou aggravée.",
+          "returnIntermediateSteps": true
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        1248,
+        240
+      ],
+      "id": "dca5394b-6fa0-4569-8c4f-168af7570147",
+      "name": "analyze",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=DONNÉES À COMPARER :\n- Observation : {{ $('Loop Over Items').item.json.Observation }}\n- Commentaire Pro (VT) : {{ $('Loop Over Items').item.json[\"TV remarq\"] }}\n- Analyse IA : {{ $json.output.reasoning }}\n\nCritique l'analyse de l'IA par rapport au commentaire pro.",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "Tu es l'Expert Validateur Technique pour IFS Food v8. \n\nTA MISSION :\nLire  l'analyse de l'IA (Output_AI) avec le commentaire du professionnel (TV remarq). \n\nTu dois confirmer si l'analyse de l'IA confirme la notation en \"D\" ou propose une non conformité majeure.\nTu dois analyser le commentaire dans la colonne (TV remarq), et donner un avis technique sur ce commentaire, s'il est adéquation avec l'analyse de l'IA (Output AI). \nta réponse doit être une de ces 3 phrase (ne pas donner un autre avis):\n\nSi la réponse de l'IA (Output Ai), conclus que la notation \"D\" est  appropriée, tu réponds: L'analyse de l'IA valide la notation \"D\"\n\nSi la réponse de l'IA (Output Ai), conclus  que'une non conformité majeure est recommandée, et que dans la colonne (TV remarq) il y a un commentaire pertient avec cette analyse , tu reponds : L'analyse de l'IA ne valide pas la notation en D, et la demande de la VT est pertinente\n\n*Si la réponse de l'IA (Output Ai), conclus  qu'une non conformité majeure est recommandée, et que dans la colonne (TV remarq) il y n' ua pas de commentaire (Null) , tu répondsL'analyse de l'IA ne valide pas la notation en D, Pas de remarque de la VT*"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        1600,
+        240
+      ],
+      "id": "4804ef8e-f207-4ddc-a4c1-e7f15ac932b1",
+      "name": "critic"
+    },
+    {
+      "parameters": {
+        "amount": 3
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2400,
+        352
+      ],
+      "id": "ac960af2-8c76-423b-b5fa-f769cec83420",
+      "name": "Wait",
+      "webhookId": "5b0fc752-d737-46f9-b79b-2faa344f3d3c"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "d9b41705-7c86-4db6-8b8f-5fe94932520b",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -96,
+        80
+      ],
+      "id": "8782f533-2389-49ba-83ac-ef9b2f0b5cb6",
+      "name": "Webhook",
+      "webhookId": "d9b41705-7c86-4db6-8b8f-5fe94932520b"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://v0-nca.vercel.app/api/workflow-callback",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"status\": \"loop_started\",\n  \"currentLoop\": {{$itemIndex}},\n  \"totalLoops\": 10000,\n  \"message\": \"Processing row {{ $json.row_number }}\",\n  \"executionId\": \"{{$execution.id}}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        576,
+        80
+      ],
+      "id": "54bb7c7d-0a14-4e30-8fa8-2e3d81557cf8",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://v0-nca.vercel.app/api/workflow-callback",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"status\": \"loop_completed\",\n  \"currentLoop\": {{$itemIndex}},\n  \"totalLoops\": 10000,\n  \"message\": \"Completed row {{ $json.row_number }}\",\n  \"executionId\": \"{{$execution.id}}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2176,
+        240
+      ],
+      "id": "df86ae3a-8e97-4173-a42e-da25fbbff687",
+      "name": "HTTP Request1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://v0-nca.vercel.app/api/workflow-callback",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"status\": \"completed\",\n  \"message\": \"All rows processed successfully!\",\n  \"summary\": \"all done!\",\n  \"executionId\": \"{{$execution.id}}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        576,
+        -112
+      ],
+      "id": "517906c3-1b76-46a7-a692-cc3bcf527ed1",
+      "name": "HTTP Request2"
+    },
+    {
+      "parameters": {
+        "url": "=https://v0-nca.vercel.app/api/stop-workflow?executionId={{$execution.id}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        800,
+        80
+      ],
+      "id": "d2c39e49-f243-47bb-a23d-1eac2e2a4c18",
+      "name": "HTTP Request3"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "6780b692-d114-4b14-a88d-e572badc1850",
+              "leftValue": "={{ $json.shouldStop }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1024,
+        80
+      ],
+      "id": "0172f1d2-a8a0-4642-b600-562ba16e6b16",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://v0-nca.vercel.app/api/workflow-callback",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"status\": \"completed\",\n  \"message\": \"Workflow stopped by user\",\n  \"executionId\": \"{{$execution.id}}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        1312,
+        -64
+      ],
+      "id": "d2ba44eb-97ee-49c3-9875-7569cdc7f1c5",
+      "name": "HTTP Request4"
+    }
+  ],
+  "pinData": {
+    "Webhook": [
+      {
+        "json": {
+          "headers": {
+            "host": "karim.n8nkk.tech",
+            "user-agent": "node",
+            "content-length": "40",
+            "accept": "*/*",
+            "accept-encoding": "gzip, br",
+            "accept-language": "*",
+            "cdn-loop": "cloudflare; loops=1",
+            "cf-connecting-ip": "184.73.137.54",
+            "cf-ipcountry": "US",
+            "cf-ray": "9c4279fb5d50d953-EWR",
+            "cf-visitor": "{\"scheme\":\"https\"}",
+            "content-type": "application/json",
+            "sec-fetch-mode": "cors",
+            "x-forwarded-for": "162.158.63.84",
+            "x-forwarded-host": "karim.n8nkk.tech",
+            "x-forwarded-port": "443",
+            "x-forwarded-proto": "https",
+            "x-forwarded-server": "d47a4711e3fa",
+            "x-real-ip": "162.158.63.84",
+            "x-vercel-id": "cdg1::mxjd4-1769456367752-f66ce9817cbf"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "timestamp": "2026-01-26T19:39:27.822Z"
+          },
+          "webhookUrl": "https://karim.n8nkk.tech/webhook/d9b41705-7c86-4db6-8b8f-5fe94932520b",
+          "executionMode": "production"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Read All Rows from Sheet": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Sheet": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "analyze",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "critic",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "analyze",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser1": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "critic",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "analyze": {
+      "main": [
+        [
+          {
+            "node": "critic",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "critic": {
+      "main": [
+        [
+          {
+            "node": "Update Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Read All Rows from Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request1": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request3": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request4",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "analyze",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "5fd58b8e-2e13-4e9a-8ef4-6e7f97a628dd",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "e97e981b4ba241b9fd3480bf994f9f76df42e7c9d265f7e412c77a35e977d66b"
+  },
+  "id": "CXbYWqIW6mIQW9Nz",
+  "tags": []
+}

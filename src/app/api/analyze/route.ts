@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
 import { createClient } from '@supabase/supabase-js';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
@@ -11,119 +11,128 @@ function getSupabase() {
   );
 }
 
-function parseResponse(text: string) {
-  const result = {
-    criticite: '',
-    risques: '',
-    exigences_ifs: '',
-    recommandations: '',
-    delai: '',
-  };
-
-  // Extract numbered sections: "1. CRITICITÉ: [value]" or "1. CRITICITÉ:\n content"
-  const sectionPatterns: { key: keyof typeof result; labels: string[] }[] = [
-    { key: 'criticite',       labels: ['CRITICITÉ', 'CRITICITE'] },
-    { key: 'risques',         labels: ['RISQUES'] },
-    { key: 'exigences_ifs',   labels: ['EXIGENCES IFS', 'EXIGENCES'] },
-    { key: 'recommandations', labels: ['RECOMMANDATIONS'] },
-    { key: 'delai',           labels: ['DÉLAI', 'DELAI'] },
-  ];
-
-  for (const section of sectionPatterns) {
-    for (const label of section.labels) {
-      // Format: "N. LABEL: [bracketed value]"
-      const bracketMatch = text.match(
-        new RegExp(`${label}\\s*:\\s*\\[([^\\]]+)\\]`, 'i')
-      );
-      if (bracketMatch) {
-        result[section.key] = bracketMatch[1].trim();
-        break;
-      }
-
-      // Format: numbered section with content until next numbered section or end
-      const sectionMatch = text.match(
-        new RegExp(
-          `\\d+\\.\\s*(?:\\*\\*)?${label}(?:\\*\\*)?[^:\\n]*:([\\s\\S]*?)(?=\\n\\d+\\.|$)`,
-          'i'
-        )
-      );
-      if (sectionMatch) {
-        result[section.key] = sectionMatch[1].replace(/^\s*\[|\]\s*$/g, '').trim();
-        break;
-      }
-    }
-  }
-
-  // Fallback criticité detection from free text
-  if (!result.criticite) {
-    if (/\bcritique\b/i.test(text)) result.criticite = 'Critique';
-    else if (/\bmajeure?\b/i.test(text)) result.criticite = 'Majeure';
-    else if (/\bmineure?\b/i.test(text)) result.criticite = 'Mineure';
-  }
-
-  return result;
-}
-
-function getRiskScore(criticite: string): number {
-  if (criticite === 'Critique') return 10;
-  if (criticite === 'Majeure') return 7;
-  if (criticite === 'Mineure') return 3;
-  return 5;
-}
-
 export async function POST(req: NextRequest) {
   try {
-    const { constat, scope } = await req.json();
+    const { observation, perimetre, req_text, tv_remarq } = await req.json();
 
-    if (!constat?.trim()) {
-      return NextResponse.json(
-        { error: 'Le champ Constat est requis' },
-        { status: 400 }
-      );
+    if (!observation?.trim()) {
+      return NextResponse.json({ error: "Le champ Observation est requis" }, { status: 400 });
+    }
+    if (!perimetre?.trim()) {
+      return NextResponse.json({ error: "Le champ Périmètre est requis" }, { status: 400 });
+    }
+    if (!req_text?.trim()) {
+      return NextResponse.json({ error: "Le champ Exigence IFS est requis" }, { status: 400 });
     }
 
-    const model = genAI.getGenerativeModel({
+    // ── Call 1: analyze agent ────────────────────────────────────────────────
+    const analyzeModel = genAI.getGenerativeModel({
       model: 'gemini-3.1-flash-lite',
-      generationConfig: { temperature: 0.3, maxOutputTokens: 1200 },
-      systemInstruction: `Tu es un expert auditeur IFS Food v8 avec 15 ans d'expérience en sécurité alimentaire et management de la qualité.
+      generationConfig: {
+        temperature: 0.3,
+        maxOutputTokens: 1500,
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: SchemaType.OBJECT,
+          properties: {
+            reasoning: { type: SchemaType.STRING },
+            grade:     { type: SchemaType.STRING, enum: ['D', 'Majeure'] },
+          },
+          required: ['reasoning', 'grade'],
+        },
+      },
+      systemInstruction: `### RÔLE
+Tu es un Expert en Conformité IFS Food v8, en Europe. Ta mission est d'agir en tant que réviseur technique pour arbitrer des « observation » d'audit initialement notées en "D". chaque observation est liée à un périmètre d'audit, le process decrit dans le périmètre a une conséquence directe avec le risque et dangers identifié dans l'observation. qui doit etre pris en compte comme contexte.
 
-MISSION: Analyser le constat d'audit fourni et produire une évaluation structurée, précise et actionnable.
+### OBJECTIF DE L'ANALYSE
+Déterminer si la note "D" est appropriée ou si l'observation doit être requalifiée en "Non-conformité Majeure" en fonction du risque résiduel pour la sécurité alimentaire, qualité, légalité et/ou authenticité du produit.
 
-FORMAT DE RÉPONSE OBLIGATOIRE (respecte exactement ce format numéroté):
-1. CRITICITÉ: [Critique/Majeure/Mineure]
-2. RISQUES: [Liste des risques identifiés pour la sécurité alimentaire et la conformité IFS]
-3. EXIGENCES IFS: [Références précises aux clauses IFS Food v8 concernées, ex: 3.1.1, 4.2.3]
-4. RECOMMANDATIONS: [Actions correctives détaillées et pratiques]
-5. DÉLAI: [Court terme (< 1 mois) / Moyen terme (1-3 mois) / Long terme (> 3 mois)]
+### CONTEXTE TECHNIQUE
+1. **Scope:** C'est le cadre de fabrication. Tout manquement doit être analysé à travers le prisme des dangers (biologiques, chimiques, physiques) spécifiques à ce périmètre.
+2. **Définition D (Not Implemented) :** L'exigence du standards IFS est absente ou non appliquée, mais n'entraîne pas de rupture immédiate de la sécurité alimentaire.
+3. **Définition MAJEURE :** Une non-conformité majeure est une défaillance significative démontrant un manquement substantiel aux exigences du référentiel IFS Food, incluant notamment, sans s'y limiter, les exigences relatives à la sécurité des aliments et/ou aux obligations légales applicables dans les pays de production et/ou de mise sur le marché.
+Elle est caractérisée par au moins l'un des critères suivants :
+1. Manquement substantiel : non-respect d'une exigence avec un impact potentiel ou avéré sur la conformité du système, y compris sur la sécurité des aliments et/ou la conformité réglementaire/légale.
+2. Perte de maîtrise d'un procédé : situation indiquant que le procédé n'est plus contrôlé (ou que les mesures de maîtrise ne sont pas efficacement mises en œuvre), susceptible d'affecter la sécurité des aliments.
+Indicateurs attendus pour conclure "majeure" :
+• Existence d'éléments probants montrant une rupture du système (application non conforme, contrôle non réalisé, critères non respectés, actions non efficaces).
+• Risque de sécurité des aliments et/ou de non-conformité légale plausible compte tenu du contexte produit/procédé.
+• Maîtrise insuffisante : absence, non-application ou inefficacité des PRP/OPRP/CCP (selon le système en place) ou des contrôles clés.
 
-Réponds uniquement en français avec un langage professionnel et technique.`,
+### MÉTHODOLOGIE D'ÉVALUATION
+Pour chaque observation soumise, tu dois suivre ce raisonnement :
+1. **Analyse du Risque lié au Scope :** Compte tenu du périmètre de fabrication, quel est le danger principal si cette exigence n'est pas respectée ?
+2. **Arbitrage D vs Majeure :**
+   - Si l'absence (D) crée un danger direct, immédiat et non maîtrisé pour la santé du consommateur, la qualité du produit, ou la légalité du produit : **Requalifier en MAJEURE**.
+   - Si l'absence est un manquement administratif ou structurel sans impact direct sur la sécurité immédiate du lot : **Maintenir en D**.
+3. **Justification Constructive :** Rédige une explication technique concise expliquant pourquoi la note est maintenue ou aggravée.`,
     });
 
-    const prompt = `DONNÉES D'AUDIT IFS Food v8:
-- Scope: ${scope?.trim() || 'Non spécifié'}
-- Constat: ${constat.trim()}
+    const analyzeUserPrompt = `### DONNÉES D'ENTRÉE
+- **Exigence :** ${req_text.trim()}
+- **Périmètre (Scope) :** ${perimetre.trim()}
+- **Observation de l'Auditeur :** ${observation.trim()}
 
-Analyse ce constat selon les standards IFS Food v8 et fournis une évaluation structurée complète.`;
+Analyse cette observation en utilisant STRICTEMENT le format markdown avec les 3 sections numérotées.`;
 
-    const geminiResult = await model.generateContent(prompt);
-    const fullResponse = geminiResult.response.text();
+    const analyzeResult = await analyzeModel.generateContent(analyzeUserPrompt);
+    const analyzeJson = JSON.parse(analyzeResult.response.text()) as { reasoning: string; grade: string };
+    const { reasoning, grade } = analyzeJson;
 
-    const parsed = parseResponse(fullResponse);
-    const scoreRisque = getRiskScore(parsed.criticite);
+    // ── Call 2: critic agent ─────────────────────────────────────────────────
+    const criticModel = genAI.getGenerativeModel({
+      model: 'gemini-3.1-flash-lite',
+      generationConfig: {
+        temperature: 0.3,
+        maxOutputTokens: 400,
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: SchemaType.OBJECT,
+          properties: {
+            diff: { type: SchemaType.STRING },
+          },
+          required: ['diff'],
+        },
+      },
+      systemInstruction: `Tu es l'Expert Validateur Technique pour IFS Food v8.
 
+TA MISSION :
+Lire l'analyse de l'IA (Output_AI) avec le commentaire du professionnel (TV remarq).
+
+Tu dois confirmer si l'analyse de l'IA confirme la notation en "D" ou propose une non conformité majeure.
+Tu dois analyser le commentaire dans la colonne (TV remarq), et donner un avis technique sur ce commentaire, s'il est en adéquation avec l'analyse de l'IA (Output AI).
+ta réponse doit être une de ces 3 phrases (ne pas donner un autre avis) :
+
+Si la réponse de l'IA (Output Ai), conclus que la notation "D" est appropriée, tu réponds : L'analyse de l'IA valide la notation "D"
+
+Si la réponse de l'IA (Output Ai), conclus qu'une non conformité majeure est recommandée, et que dans la colonne (TV remarq) il y a un commentaire pertinent avec cette analyse, tu réponds : L'analyse de l'IA ne valide pas la notation en D, et la demande de la VT est pertinente
+
+Si la réponse de l'IA (Output Ai), conclus qu'une non conformité majeure est recommandée, et que dans la colonne (TV remarq) il n'y a pas de commentaire (Null), tu réponds : L'analyse de l'IA ne valide pas la notation en D, Pas de remarque de la VT`,
+    });
+
+    const criticUserPrompt = `DONNÉES À COMPARER :
+- Observation : ${observation.trim()}
+- Commentaire Pro (VT) : ${tv_remarq?.trim() || 'Null'}
+- Analyse IA : ${reasoning}
+
+Critique l'analyse de l'IA par rapport au commentaire pro.`;
+
+    const criticResult = await criticModel.generateContent(criticUserPrompt);
+    const criticJson = JSON.parse(criticResult.response.text()) as { diff: string };
+    const { diff } = criticJson;
+
+    // ── Save to Supabase ─────────────────────────────────────────────────────
     const supabase = getSupabase();
     const { data: inserted, error: dbError } = await supabase
       .from('analyses')
       .insert({
-        constat: constat.trim(),
-        scope: scope?.trim() || null,
-        criticite: parsed.criticite || null,
-        score_risque: scoreRisque,
-        risques: parsed.risques || null,
-        exigences_ifs: parsed.exigences_ifs || null,
-        recommandations: parsed.recommandations || null,
-        delai: parsed.delai || null,
-        full_response: fullResponse,
+        observation: observation.trim(),
+        perimetre:   perimetre.trim(),
+        req_text:    req_text.trim(),
+        tv_remarq:   tv_remarq?.trim() || null,
+        grade,
+        reasoning,
+        diff,
       })
       .select()
       .single();

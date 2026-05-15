@@ -3,48 +3,80 @@
 import { useState } from 'react';
 
 interface Props {
-  onSubmit: (constat: string, scope: string) => Promise<void>;
+  onSubmit: (observation: string, perimetre: string, req_text: string, tv_remarq: string) => Promise<void>;
   loading: boolean;
 }
 
 export default function AnalysisForm({ onSubmit, loading }: Props) {
-  const [constat, setConstat] = useState('');
-  const [scope, setScope] = useState('');
+  const [observation, setObservation] = useState('');
+  const [perimetre, setPerimetre] = useState('');
+  const [reqText, setReqText] = useState('');
+  const [tvRemarq, setTvRemarq] = useState('');
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!constat.trim()) return;
-    await onSubmit(constat, scope);
+    if (!observation.trim() || !perimetre.trim() || !reqText.trim()) return;
+    await onSubmit(observation, perimetre, reqText, tvRemarq);
   }
 
   return (
     <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-      <h2 className="text-base font-semibold text-gray-800 mb-4">Nouveau Constat</h2>
+      <h2 className="text-base font-semibold text-gray-800 mb-4">Nouvelle Observation</h2>
 
       <div className="mb-4">
         <label className="block text-sm font-medium text-gray-700 mb-1.5">
-          Scope <span className="text-gray-400 font-normal">(optionnel)</span>
+          Exigence IFS <span className="text-red-500">*</span>
         </label>
         <input
           type="text"
-          value={scope}
-          onChange={(e) => setScope(e.target.value)}
-          placeholder="ex: Production, Stockage, Hygiène du personnel…"
+          value={reqText}
+          onChange={(e) => setReqText(e.target.value)}
+          placeholder="ex: L'organisation doit définir et mettre en œuvre un programme de nettoyage…"
           className="w-full px-3 py-2 text-sm text-gray-900 placeholder-gray-400 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+          required
+          disabled={loading}
+        />
+      </div>
+
+      <div className="mb-4">
+        <label className="block text-sm font-medium text-gray-700 mb-1.5">
+          Périmètre <span className="text-red-500">*</span>
+        </label>
+        <input
+          type="text"
+          value={perimetre}
+          onChange={(e) => setPerimetre(e.target.value)}
+          placeholder="ex: Production de viande fraîche, Conditionnement sous atmosphère modifiée…"
+          className="w-full px-3 py-2 text-sm text-gray-900 placeholder-gray-400 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+          required
+          disabled={loading}
+        />
+      </div>
+
+      <div className="mb-4">
+        <label className="block text-sm font-medium text-gray-700 mb-1.5">
+          Observation de l&apos;auditeur <span className="text-red-500">*</span>
+        </label>
+        <textarea
+          value={observation}
+          onChange={(e) => setObservation(e.target.value)}
+          placeholder="Décrivez l'observation d'audit notée «D»…"
+          rows={4}
+          required
+          className="w-full px-3 py-2 text-sm text-gray-900 placeholder-gray-400 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition resize-none"
           disabled={loading}
         />
       </div>
 
       <div className="mb-5">
         <label className="block text-sm font-medium text-gray-700 mb-1.5">
-          Constat <span className="text-red-500">*</span>
+          Remarque VT <span className="text-gray-400 font-normal">(optionnel)</span>
         </label>
         <textarea
-          value={constat}
-          onChange={(e) => setConstat(e.target.value)}
-          placeholder="Décrivez le constat d'audit IFS Food v8 à analyser…"
-          rows={5}
-          required
+          value={tvRemarq}
+          onChange={(e) => setTvRemarq(e.target.value)}
+          placeholder="Commentaire du validateur technique, si disponible…"
+          rows={3}
           className="w-full px-3 py-2 text-sm text-gray-900 placeholder-gray-400 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition resize-none"
           disabled={loading}
         />
@@ -52,7 +84,7 @@ export default function AnalysisForm({ onSubmit, loading }: Props) {
 
       <button
         type="submit"
-        disabled={loading || !constat.trim()}
+        disabled={loading || !observation.trim() || !perimetre.trim() || !reqText.trim()}
         className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white text-sm font-medium rounded-lg transition-colors"
       >
         {loading ? (

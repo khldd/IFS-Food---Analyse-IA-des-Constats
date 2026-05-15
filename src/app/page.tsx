@@ -26,14 +26,14 @@ export default function Home() {
     fetchHistory();
   }, []);
 
-  async function handleSubmit(constat: string, scope: string) {
+  async function handleSubmit(observation: string, perimetre: string, req_text: string, tv_remarq: string) {
     setLoading(true);
     setSelected(null);
     try {
       const res = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ constat, scope }),
+        body: JSON.stringify({ observation, perimetre, req_text, tv_remarq }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Erreur inconnue');
@@ -62,7 +62,7 @@ export default function Home() {
           </svg>
         </div>
         <div>
-          <h1 className="text-sm font-semibold text-gray-900 leading-tight">IFS Food — Analyse IA des Constats</h1>
+          <h1 className="text-sm font-semibold text-gray-900 leading-tight">IFS Food — Arbitrage NC (D vs Majeure)</h1>
           <p className="text-xs text-gray-400">Analyse experte IFS Food v8 par Gemini</p>
         </div>
       </header>
@@ -76,7 +76,7 @@ export default function Home() {
               <svg className="w-12 h-12 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
               </svg>
-              <p className="text-sm">Saisissez un constat pour lancer l&apos;analyse</p>
+              <p className="text-sm">Saisissez une observation notée «D» pour lancer l&apos;arbitrage</p>
             </div>
           )}
         </main>
