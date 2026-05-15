@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
           type: SchemaType.OBJECT,
           properties: {
             reasoning: { type: SchemaType.STRING },
-            grade:     { type: SchemaType.STRING, enum: ['D', 'Majeure'] },
+            grade:     { type: SchemaType.STRING, format: 'enum', enum: ['D', 'Majeure'] },
           },
           required: ['reasoning', 'grade'],
         },
