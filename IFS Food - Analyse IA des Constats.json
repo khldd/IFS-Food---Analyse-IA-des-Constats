@@ -1,0 +1,347 @@
+{
+  "name": "IFS Food - Analyse IA des Constats",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        256,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Configuration initiale\nconst config = {\n  // Configuration du fichier (À CONFIGURER)\n  documentId: 'YOUR_GOOGLE_SHEET_ID',  // ID du Google Sheet\n  sheetName: 'Audit_Data',              // Nom de la feuille\n  \n  // Configuration LLM\n  model: 'gpt-4o',\n  temperature: 0.3,\n  maxTokens: 800,\n  \n  // Paramètres de traitement\n  batchSize: 10,\n  retryAttempts: 3,\n  \n  // Configuration email\n  emailTo: 'qualite@entreprise.com',  // À CONFIGURER\n  \n  // Colonnes du fichier\n  columns: {\n    id: 'ID',\n    exigence: 'NumeroExigence',\n    constat: 'Constat',\n    scope: 'Scope',\n    analyse: 'Analyse_IA',\n    status: 'Status_Traitement',\n    date: 'Date_Analyse',\n    criticite: 'Criticite',\n    scoreRisque: 'Score_Risque'\n  }\n};\n\nreturn [{\n  json: { config }\n}];"
+      },
+      "id": "b2c3d4e5-f6g7-8901-bcde-f12345678901",
+      "name": "Initialize Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        464,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $json.config.documentId }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "={{ $json.config.sheetName }}",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "c3d4e5f6-g7h8-9012-cdef-123456789012",
+      "name": "Read Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        656,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Filtrer les lignes qui nécessitent une analyse IA\nconst allItems = $input.all();\nconst config = $node[\"Initialize Config\"].json.config;\n\nconst processedItems = [];\nlet rowIndex = 1; // Commencer à 1 car ligne 0 est l'en-tête\n\nfor (const item of allItems) {\n  rowIndex++;\n  \n  // Vérifier si la ligne doit être traitée\n  const needsProcessing = !item.json[config.columns.analyse] || \n                         item.json[config.columns.status] === 'À retraiter';\n  \n  if (needsProcessing && item.json[config.columns.constat]) {\n    processedItems.push({\n      json: {\n        ...item.json,\n        needsAI: true,\n        originalIndex: rowIndex,\n        rowNumber: rowIndex\n      }\n    });\n  } else {\n    processedItems.push({\n      json: {\n        ...item.json,\n        needsAI: false,\n        originalIndex: rowIndex,\n        rowNumber: rowIndex\n      }\n    });\n  }\n}\n\nreturn processedItems;"
+      },
+      "id": "d4e5f6g7-h8i9-0123-defg-234567890123",
+      "name": "Filter Rows",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        864,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Créer des lots pour le traitement\nconst allItems = $input.all();\nconst config = $node[\"Initialize Config\"].json.config;\n\n// Filtrer uniquement les items qui nécessitent l'IA\nconst itemsNeedingAI = allItems.filter(item => item.json.needsAI);\n\nif (itemsNeedingAI.length === 0) {\n  return [{\n    json: {\n      hasBatches: false,\n      message: 'Aucune ligne à traiter',\n      allItems: allItems\n    }\n  }];\n}\n\n// Créer les lots\nconst batchSize = config.batchSize;\nconst batches = [];\n\nfor (let i = 0; i < itemsNeedingAI.length; i += batchSize) {\n  const batch = itemsNeedingAI.slice(i, i + batchSize);\n  batches.push({\n    json: {\n      batchId: Math.floor(i / batchSize) + 1,\n      totalBatches: Math.ceil(itemsNeedingAI.length / batchSize),\n      items: batch.map(item => item.json),\n      timestamp: new Date().toISOString(),\n      hasBatches: true\n    }\n  });\n}\n\nreturn batches;"
+      },
+      "id": "e5f6g7h8-i9j0-1234-efgh-345678901234",
+      "name": "Create Batches",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1056,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Construire le prompt pour l'IA\nconst item = $json;\nconst config = $node[\"Initialize Config\"].json.config;\n\n// Si pas de batch, passer au suivant\nif (!item.hasBatches) {\n  return [{ json: item }];\n}\n\n// Traiter chaque item du batch\nconst results = [];\n\nfor (const dataItem of item.items) {\n  const systemPrompt = `Tu es un expert auditeur IFS Food v8 avec 15 ans d'expérience.\n\nMISSION: Analyser le constat d'audit et fournir une évaluation structurée.\n\nFORMAT DE RÉPONSE OBLIGATOIRE:\n1. CRITICITÉ: [Critique/Majeure/Mineure]\n2. RISQUES: [Liste des risques identifiés]\n3. EXIGENCES IFS: [Références précises aux clauses IFS Food v8]\n4. RECOMMANDATIONS: [Actions correctives détaillées]\n5. DÉLAI: [Court terme/Moyen terme/Long terme]\n\nRéponds en français et de manière structurée.`;\n\n  const userPrompt = `DONNÉES D'AUDIT:\n- Exigence n°: ${dataItem[config.columns.exigence] || 'Non spécifiée'}\n- Scope: ${dataItem[config.columns.scope] || 'Non spécifié'}\n- Constat: ${dataItem[config.columns.constat]}\n\nAnalyse ce constat selon les standards IFS Food v8.`;\n\n  results.push({\n    json: {\n      ...dataItem,\n      systemPrompt: systemPrompt,\n      userPrompt: userPrompt,\n      batchId: item.batchId\n    }\n  });\n}\n\nreturn results;"
+      },
+      "id": "f6g7h8i9-j0k1-2345-fghi-456789012345",
+      "name": "Build AI Prompts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1264,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "chat",
+        "prompt": {
+          "messages": [
+            {
+              "role": "system",
+              "content": "={{ $json.systemPrompt }}"
+            },
+            {
+              "content": "={{ $json.userPrompt }}"
+            }
+          ]
+        },
+        "options": {
+          "maxTokens": 800,
+          "temperature": 0.3
+        },
+        "requestOptions": {}
+      },
+      "id": "g7h8i9j0-k1l2-3456-ghij-567890123456",
+      "name": "OpenAI Analysis",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1.1,
+      "position": [
+        1456,
+        304
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Parser et valider la réponse de l'IA\nconst item = $json;\nconst config = $node[\"Initialize Config\"].json.config;\n\n// Vérifier si l'appel OpenAI a réussi\nif (!item.message || !item.message.content) {\n  return [{\n    json: {\n      ...item,\n      [config.columns.analyse]: 'ERREUR: Analyse non disponible',\n      [config.columns.status]: 'Échec',\n      [config.columns.date]: new Date().toISOString(),\n      [config.columns.criticite]: '',\n      [config.columns.scoreRisque]: 0,\n      error: 'Échec de l\\'appel OpenAI'\n    }\n  }];\n}\n\nconst aiResponse = item.message.content;\n\n// Parser la réponse pour extraire les éléments structurés\nfunction parseAIResponse(response) {\n  const result = {\n    criticite: '',\n    risques: [],\n    exigences: [],\n    recommandations: [],\n    delai: ''\n  };\n  \n  try {\n    // Extraction de la criticité\n    const criticiteMatch = response.match(/CRITICITÉ:\\s*\\[([^\\]]+)\\]/i);\n    if (criticiteMatch) {\n      result.criticite = criticiteMatch[1].trim();\n    } else {\n      // Recherche alternative\n      if (response.toLowerCase().includes('critique')) result.criticite = 'Critique';\n      else if (response.toLowerCase().includes('majeure')) result.criticite = 'Majeure';\n      else if (response.toLowerCase().includes('mineure')) result.criticite = 'Mineure';\n    }\n    \n    // Extraction des risques\n    const risquesMatch = response.match(/RISQUES:\\s*\\[([^\\]]+)\\]/i);\n    if (risquesMatch) {\n      result.risques = risquesMatch[1].split(',').map(r => r.trim());\n    }\n    \n  } catch (e) {\n    console.error('Parsing error:', e);\n  }\n  \n  return result;\n}\n\nconst parsed = parseAIResponse(aiResponse);\n\n// Calculer le score de risque\nfunction calculateRiskScore(parsed) {\n  const scores = {\n    'Critique': 10,\n    'Majeure': 7,\n    'Mineure': 3\n  };\n  return scores[parsed.criticite] || 5;\n}\n\nreturn [{\n  json: {\n    ...item,\n    [config.columns.analyse]: aiResponse,\n    [config.columns.status]: 'Complété',\n    [config.columns.date]: new Date().toISOString(),\n    [config.columns.criticite]: parsed.criticite,\n    [config.columns.scoreRisque]: calculateRiskScore(parsed)\n  }\n}];"
+      },
+      "id": "h8i9j0k1-l2m3-4567-hijk-678901234567",
+      "name": "Parse AI Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1664,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Fusionner tous les résultats\nconst allOriginalItems = $node[\"Filter Rows\"].all();\nconst processedItems = $input.all();\nconst config = $node[\"Initialize Config\"].json.config;\n\n// Créer un map pour un accès rapide par numéro de ligne\nconst processedMap = new Map();\nprocessedItems.forEach(item => {\n  if (item.json.rowNumber) {\n    processedMap.set(item.json.rowNumber, item.json);\n  }\n});\n\n// Reconstruire le dataset complet\nconst finalData = [];\nlet processedCount = 0;\nlet successCount = 0;\nlet errorCount = 0;\n\nfor (const original of allOriginalItems) {\n  const processed = processedMap.get(original.json.rowNumber);\n  \n  if (processed && original.json.needsAI) {\n    // Fusionner les données traitées\n    finalData.push({\n      json: {\n        ...original.json,\n        [config.columns.analyse]: processed[config.columns.analyse],\n        [config.columns.status]: processed[config.columns.status],\n        [config.columns.date]: processed[config.columns.date],\n        [config.columns.criticite]: processed[config.columns.criticite],\n        [config.columns.scoreRisque]: processed[config.columns.scoreRisque]\n      }\n    });\n    processedCount++;\n    if (processed[config.columns.status] === 'Complété') successCount++;\n    if (processed[config.columns.status] === 'Échec') errorCount++;\n  } else {\n    // Garder les données originales\n    finalData.push(original);\n  }\n}\n\n// Calculer les statistiques\nconst stats = {\n  totalRows: allOriginalItems.length,\n  processedRows: processedCount,\n  successRows: successCount,\n  errorRows: errorCount,\n  successRate: processedCount > 0 ? ((successCount / processedCount) * 100).toFixed(1) : 0\n};\n\n// Compter par criticité\nconst criticiteCounts = {\n  Critique: 0,\n  Majeure: 0,\n  Mineure: 0\n};\n\nfinalData.forEach(item => {\n  const crit = item.json[config.columns.criticite];\n  if (crit && criticiteCounts.hasOwnProperty(crit)) {\n    criticiteCounts[crit]++;\n  }\n});\n\nstats.criticiteCounts = criticiteCounts;\n\nreturn [{\n  json: {\n    data: finalData.map(item => item.json),\n    stats: stats,\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "i9j0k1l2-m3n4-5678-ijkl-789012345678",
+      "name": "Merge Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1856,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $('Initialize Config').json.config.documentId }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "={{ $('Initialize Config').json.config.sheetName }}",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {
+          "cellFormat": "USER_ENTERED",
+          "useAppend": false
+        }
+      },
+      "id": "j0k1l2m3-n4o5-6789-jklm-890123456789",
+      "name": "Update Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2064,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Générer le rapport d'analyse\nconst mergedData = $node[\"Merge Results\"].json;\nconst stats = mergedData.stats;\nconst config = $node[\"Initialize Config\"].json.config;\n\nconst report = `\n📊 RAPPORT D'ANALYSE IFS FOOD\n═══════════════════════════════════════\n\nDate: ${new Date().toLocaleDateString('fr-FR', { \n  weekday: 'long', \n  year: 'numeric', \n  month: 'long', \n  day: 'numeric' \n})}\n\n✅ RÉSULTATS DU TRAITEMENT\n─────────────────────────────────────\n• Lignes totales: ${stats.totalRows}\n• Lignes analysées: ${stats.processedRows}\n• Succès: ${stats.successRows}\n• Échecs: ${stats.errorRows}\n• Taux de réussite: ${stats.successRate}%\n\n🎯 RÉPARTITION PAR CRITICITÉ\n─────────────────────────────────────\n• 🔴 Critique: ${stats.criticiteCounts.Critique}\n• 🟠 Majeure: ${stats.criticiteCounts.Majeure}\n• 🟡 Mineure: ${stats.criticiteCounts.Mineure}\n\n📝 ACTIONS REQUISES\n─────────────────────────────────────\n${stats.criticiteCounts.Critique > 0 ? '⚠️  URGENT: ' + stats.criticiteCounts.Critique + ' constat(s) critique(s) nécessitent une action immédiate' : '✓ Aucun constat critique'}\n${stats.criticiteCounts.Majeure > 0 ? '• ' + stats.criticiteCounts.Majeure + ' constat(s) majeur(s) à traiter rapidement' : ''}\n${stats.criticiteCounts.Mineure > 0 ? '• ' + stats.criticiteCounts.Mineure + ' constat(s) mineur(s) à planifier' : ''}\n\n🔗 ACCÈS AU FICHIER\n─────────────────────────────────────\nGoogle Sheets: https://docs.google.com/spreadsheets/d/${config.documentId}\n\n═══════════════════════════════════════\nGénéré automatiquement par n8n\n`;\n\nreturn [{\n  json: {\n    report: report,\n    stats: stats,\n    emailSubject: `[IFS Food] Rapport d'analyse - ${stats.successRows}/${stats.processedRows} constats traités`,\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "k1l2m3n4-o5p6-7890-klmn-901234567890",
+      "name": "Generate Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2256,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $node['Initialize Config'].json.config.emailTo }}",
+        "subject": "={{ $json.emailSubject }}",
+        "emailType": "text",
+        "message": "={{ $json.report }}",
+        "options": {}
+      },
+      "id": "l2m3n4o5-p6q7-8901-lmno-012345678901",
+      "name": "Send Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        2464,
+        304
+      ],
+      "webhookId": "c92486bf-92e5-463b-8a60-b17eb6116b0b"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Initialize Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Initialize Config": {
+      "main": [
+        [
+          {
+            "node": "Read Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Google Sheets": {
+      "main": [
+        [
+          {
+            "node": "Filter Rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Rows": {
+      "main": [
+        [
+          {
+            "node": "Create Batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Batches": {
+      "main": [
+        [
+          {
+            "node": "Build AI Prompts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build AI Prompts": {
+      "main": [
+        [
+          {
+            "node": "OpenAI Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Analysis": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Response": {
+      "main": [
+        [
+          {
+            "node": "Merge Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Results": {
+      "main": [
+        [
+          {
+            "node": "Update Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Google Sheets": {
+      "main": [
+        [
+          {
+            "node": "Generate Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Report": {
+      "main": [
+        [
+          {
+            "node": "Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "ea3e9bf1-6c37-47eb-8d15-72f32d4fc1e1",
+  "meta": {
+    "instanceId": "e97e981b4ba241b9fd3480bf994f9f76df42e7c9d265f7e412c77a35e977d66b"
+  },
+  "id": "HDMUzLYvgCKUo7vz",
+  "tags": []
+}
