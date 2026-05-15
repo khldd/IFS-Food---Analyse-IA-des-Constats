@@ -7,6 +7,7 @@ interface Props {
   loading: boolean;
   selected: Analysis | null;
   onSelect: (a: Analysis) => void;
+  onClear: () => void;
 }
 
 const CRITICITE_DOT: Record<string, string> = {
@@ -15,15 +16,31 @@ const CRITICITE_DOT: Record<string, string> = {
   Mineure:  'bg-yellow-400',
 };
 
-export default function HistoryPanel({ history, loading, selected, onSelect }: Props) {
+export default function HistoryPanel({ history, loading, selected, onSelect, onClear }: Props) {
+  function handleClear() {
+    if (window.confirm(`Supprimer les ${history.length} analyse(s) ? Cette action est irréversible.`)) {
+      onClear();
+    }
+  }
+
   return (
     <div className="flex flex-col h-full">
-      <div className="px-4 py-3 border-b border-gray-200 shrink-0">
-        <h2 className="text-sm font-semibold text-gray-700">Historique</h2>
-        {!loading && (
-          <p className="text-xs text-gray-400 mt-0.5">
-            {history.length} analyse{history.length !== 1 ? 's' : ''}
-          </p>
+      <div className="px-4 py-3 border-b border-gray-200 shrink-0 flex items-center justify-between">
+        <div>
+          <h2 className="text-sm font-semibold text-gray-700">Historique</h2>
+          {!loading && (
+            <p className="text-xs text-gray-400 mt-0.5">
+              {history.length} analyse{history.length !== 1 ? 's' : ''}
+            </p>
+          )}
+        </div>
+        {history.length > 0 && !loading && (
+          <button
+            onClick={handleClear}
+            className="text-xs text-red-400 hover:text-red-600 transition-colors px-2 py-1 rounded hover:bg-red-50"
+          >
+            Effacer
+          </button>
         )}
       </div>
 

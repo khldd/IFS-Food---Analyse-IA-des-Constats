@@ -46,6 +46,13 @@ export default function Home() {
     }
   }
 
+  async function handleClear() {
+    const supabase = createClient();
+    await supabase.from('analyses').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    setHistory([]);
+    setSelected(null);
+  }
+
   return (
     <div className="flex flex-col h-screen bg-gray-50">
       <header className="shrink-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center gap-3">
@@ -75,7 +82,7 @@ export default function Home() {
         </main>
 
         <aside className="w-72 shrink-0 border-l border-gray-200 bg-white overflow-hidden flex flex-col">
-          <HistoryPanel history={history} loading={loadingHistory} selected={selected} onSelect={setSelected} />
+          <HistoryPanel history={history} loading={loadingHistory} selected={selected} onSelect={setSelected} onClear={handleClear} />
         </aside>
       </div>
     </div>
