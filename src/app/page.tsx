@@ -26,14 +26,14 @@ export default function Home() {
     fetchHistory();
   }, []);
 
-  async function handleSubmit(observation: string, perimetre: string, req_text: string, tv_remarq: string) {
+  async function handleSubmit(observation: string, perimetre: string, req_text: string, tv_remarq: string, systemPrompt: string) {
     setLoading(true);
     setSelected(null);
     try {
       const res = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ observation, perimetre, req_text, tv_remarq }),
+        body: JSON.stringify({ observation, perimetre, req_text, tv_remarq, systemPrompt }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Erreur inconnue');

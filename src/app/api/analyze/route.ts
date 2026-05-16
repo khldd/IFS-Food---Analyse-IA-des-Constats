@@ -13,7 +13,7 @@ function getSupabase() {
 
 export async function POST(req: NextRequest) {
   try {
-    const { observation, perimetre, req_text, tv_remarq } = await req.json();
+    const { observation, perimetre, req_text, tv_remarq, systemPrompt } = await req.json();
 
     if (!observation?.trim()) {
       return NextResponse.json({ error: "Le champ Observation est requis" }, { status: 400 });
@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
           required: ['reasoning', 'grade'],
         },
       },
-      systemInstruction: `### RÔLE
+      systemInstruction: systemPrompt || `### RÔLE
 Tu es un Expert en Conformité IFS Food v8, en Europe. Ta mission est d'agir en tant que réviseur technique pour arbitrer des « observation » d'audit initialement notées en "D". chaque observation est liée à un périmètre d'audit, le process decrit dans le périmètre a une conséquence directe avec le risque et dangers identifié dans l'observation. qui doit etre pris en compte comme contexte.
 
 ### OBJECTIF DE L'ANALYSE
