@@ -7,7 +7,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 function getSupabase() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 }
 
@@ -141,10 +141,13 @@ Critique l'analyse de l'IA par rapport au commentaire pro.`;
 
     return NextResponse.json(inserted);
   } catch (err) {
+    const message =
+      err instanceof Error
+        ? err.message
+        : typeof err === 'object' && err !== null && 'message' in err
+        ? String((err as { message: unknown }).message)
+        : 'Erreur interne du serveur';
     console.error('[/api/analyze]', err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Erreur interne du serveur' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
