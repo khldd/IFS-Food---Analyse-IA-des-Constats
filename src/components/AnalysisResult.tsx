@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import type { Analysis } from '@/types';
 
@@ -25,12 +26,40 @@ function getDiffStyle(diff: string | null): string {
 }
 
 export default function AnalysisResult({ analysis }: Props) {
+  const [copied, setCopied] = useState(false);
   const style = analysis.grade ? GRADE_STYLES[analysis.grade] : null;
 
   const date = new Date(analysis.created_at).toLocaleString('fr-FR', {
     day: '2-digit', month: 'short', year: 'numeric',
     hour: '2-digit', minute: '2-digit',
   });
+
+  const copyAsMarkdown = useCallback(() => {
+    const gradeLabel = analysis.grade ? (GRADE_LABELS[analysis.grade] ?? analysis.grade) : null;
+    const lines: string[] = [];
+    lines.push(`# Analyse IFS Food`);
+    lines.push('');
+    lines.push(`**Observation :** ${analysis.observation}`);
+    if (analysis.perimetre) lines.push(`**Périmètre :** ${analysis.perimetre}`);
+    if (gradeLabel)         lines.push(`**Grade :** ${gradeLabel}`);
+    lines.push(`**Date :** ${date}`);
+    if (analysis.reasoning) {
+      lines.push('');
+      lines.push('## Analyse IA');
+      lines.push('');
+      lines.push(analysis.reasoning);
+    }
+    if (analysis.diff) {
+      lines.push('');
+      lines.push('## Verdict Validateur');
+      lines.push('');
+      lines.push(analysis.diff);
+    }
+    navigator.clipboard.writeText(lines.join('\n')).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }, [analysis, date]);
 
   return (
     <div className={`bg-white rounded-xl border border-gray-200 shadow-sm border-l-4 ${style?.border ?? 'border-l-gray-200'}`}>
@@ -59,8 +88,19 @@ export default function AnalysisResult({ analysis }: Props) {
         {/* AI Reasoning */}
         {analysis.reasoning && (
           <div className="rounded-lg border border-gray-100 bg-gray-50 p-4">
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-              <span>🔍</span> Analyse IA
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 flex items-center justify-between gap-1.5">
+              <span className="flex items-center gap-1.5"><span>🔍</span> Analyse IA</span>
+              <button
+                onClick={copyAsMarkdown}
+                title="Copier en Markdown"
+                className="flex items-center gap-1 text-xs font-normal normal-case text-gray-400 hover:text-gray-700 transition-colors px-2 py-0.5 rounded border border-gray-200 hover:border-gray-400 bg-white"
+              >
+                {copied ? (
+                  <><span>✓</span> Copié</>
+                ) : (
+                  <><svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copier MD</>
+                )}
+              </button>
             </h3>
             <div className="text-sm text-gray-800 leading-relaxed prose prose-sm prose-gray max-w-none
               prose-p:my-1 prose-ul:my-1 prose-li:my-0.5 prose-strong:text-gray-900">
