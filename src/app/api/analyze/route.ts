@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
 import { createClient } from '@supabase/supabase-js';
 
+function extractGrade(text: string): 'D' | 'Majeure' | null {
+  if (/requalifi[eé].*majeure|majeure/i.test(text)) return 'Majeure';
+  if (/maintenir en d|maintenir.*\bD\b|la note.*D.*appropriée|notation.*D/i.test(text)) return 'D';
+  return null;
+}
+
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
 function getSupabase() {
@@ -30,16 +36,7 @@ export async function POST(req: NextRequest) {
       model: 'gemini-3.1-flash-lite',
       generationConfig: {
         temperature: 0.3,
-        maxOutputTokens: 1500,
-        responseMimeType: 'application/json',
-        responseSchema: {
-          type: SchemaType.OBJECT,
-          properties: {
-            reasoning: { type: SchemaType.STRING },
-            grade:     { type: SchemaType.STRING, format: 'enum', enum: ['D', 'Majeure'] },
-          },
-          required: ['reasoning', 'grade'],
-        },
+        maxOutputTokens: 4096,
       },
       systemInstruction: systemPrompt || `### RÔLE
 Tu es un Expert en Conformité IFS Food v8, en Europe. Ta mission est d'agir en tant que réviseur technique pour arbitrer des « observation » d'audit initialement notées en "D". chaque observation est liée à un périmètre d'audit, le process decrit dans le périmètre a une conséquence directe avec le risque et dangers identifié dans l'observation. qui doit etre pris en compte comme contexte.
@@ -76,8 +73,8 @@ Pour chaque observation soumise, tu dois suivre ce raisonnement :
 Analyse cette observation en utilisant STRICTEMENT le format markdown avec les 3 sections numérotées.`;
 
     const analyzeResult = await analyzeModel.generateContent(analyzeUserPrompt);
-    const analyzeJson = JSON.parse(analyzeResult.response.text()) as { reasoning: string; grade: string };
-    const { reasoning, grade } = analyzeJson;
+    const reasoning = analyzeResult.response.text();
+    const grade = extractGrade(reasoning);
 
     // ── Call 2: critic agent ─────────────────────────────────────────────────
     const criticModel = genAI.getGenerativeModel({
