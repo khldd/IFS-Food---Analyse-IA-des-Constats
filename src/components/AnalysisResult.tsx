@@ -46,6 +46,16 @@ export default function AnalysisResult({ analysis }: Props) {
         prose-li:my-0.5 prose-strong:text-gray-900 prose-hr:my-4">
         <ReactMarkdown>{fullMarkdown}</ReactMarkdown>
       </div>
+
+      {/* Input context */}
+      <div className="px-6 py-4 border-t border-gray-100 space-y-2 text-xs text-gray-500">
+        <p><span className="font-medium text-gray-600">Observation :</span> {analysis.observation}</p>
+        <p><span className="font-medium text-gray-600">Périmètre :</span> {analysis.perimetre}</p>
+        <p><span className="font-medium text-gray-600">Exigence IFS :</span> {analysis.req_text}</p>
+        {analysis.tv_remarq && (
+          <p><span className="font-medium text-gray-600">Remarque VT :</span> {analysis.tv_remarq}</p>
+        )}
+      </div>
     </div>
   );
 }
