@@ -1,0 +1,101 @@
+migrate-prod:
+  stage: migrate
+  environment:
+    name: prod
+  image: node:20-alpine
+  variables:
+    PGSSLMODE: "disable"
+  before_script:
+    - npm install -g supabase@latest
+  script:
+    - export PGSSLMODE=disable
+    - supabase db push --db-url "${SUPABASE_DB_URL}"
+
+sonarqube-prod:
+  stage: test
+  environment:
+    name: prod
+  image:
+    name: sonarsource/sonar-scanner-cli:latest
+    entrypoint: [""]
+  variables:
+    SONAR_HOST_URL: "https://sonarqube.myqateam.ai"
+    GIT_DEPTH: "0"
+  script:
+    - |
+      sonar-scanner \
+        -Dsonar.projectKey=ifs-analyser-prod \
+        -Dsonar.projectName="IFS Analyser Prod" \
+        -Dsonar.sources=. \
+        -Dsonar.host.url="${SONAR_HOST_URL}" \
+        -Dsonar.token="${SONAR_TOKEN_PROD}" \
+        -Dsonar.qualitygate.wait=false
+  allow_failure: true
+
+build-prod:
+  stage: build
+  environment:
+    name: prod
+  image: docker:27
+  services:
+    - docker:27-dind
+  variables:
+    DOCKER_TLS_CERTDIR: ""
+    DOCKER_HOST: tcp://localhost:2375
+    IMAGE_NAME: "${HARBOR_URL}/prod/ifs-analyser"
+  before_script:
+    - until docker info >/dev/null 2>&1; do sleep 1; done
+    - test -n "${HARBOR_URL}" || { echo "HARBOR_URL is empty"; exit 1; }
+    - test -n "${HARBOR_USER}" || { echo "HARBOR_USER is empty"; exit 1; }
+    - test -n "${HARBOR_PASS}" || { echo "HARBOR_PASS is empty"; exit 1; }
+    - echo "${HARBOR_PASS}" | docker login "${HARBOR_URL}" -u "${HARBOR_USER}" --password-stdin
+  script:
+    - |
+      docker build \
+        --build-arg NEXT_PUBLIC_APP_ENV="production" \
+        --build-arg NEXT_PUBLIC_SUPABASE_URL="${NEXT_PUBLIC_SUPABASE_URL}" \
+        --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY="${NEXT_PUBLIC_SUPABASE_ANON_KEY}" \
+        --build-arg NEXT_PUBLIC_APP_URL="${NEXT_PUBLIC_APP_URL}" \
+        --build-arg NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL}" \
+        --build-arg GIT_SHA="${CI_COMMIT_SHORT_SHA}" \
+        -t "${IMAGE_NAME}:${IMAGE_TAG}" .
+    - docker tag "${IMAGE_NAME}:${IMAGE_TAG}" "${IMAGE_NAME}:latest"
+    - docker push "${IMAGE_NAME}:${IMAGE_TAG}"
+    - docker push "${IMAGE_NAME}:latest"
+
+trivy-prod:
+  stage: scan
+  environment:
+    name: prod
+  image:
+    name: aquasec/trivy:latest
+    entrypoint: [""]
+  variables:
+    IMAGE_NAME: "${HARBOR_URL}/prod/ifs-analyser"
+    TRIVY_USERNAME: "${HARBOR_USER}"
+    TRIVY_PASSWORD: "${HARBOR_PASS}"
+  script:
+    - echo "Scanning ${IMAGE_NAME}:${IMAGE_TAG}..."
+    - trivy image --severity CRITICAL,HIGH --format table "${IMAGE_NAME}:${IMAGE_TAG}"
+  allow_failure: true
+
+deploy-prod:
+  stage: deploy
+  environment:
+    name: prod
+    url: https://ifs-analyser.myqateam.ai
+  image: alpine:3.19
+  variables:
+    IMAGE_NAME: "${HARBOR_URL}/prod/ifs-analyser"
+  before_script:
+    - apk add --no-cache git sed
+  script:
+    - |
+      git clone "https://louay:${DEPLOY_TOKEN}@gitlab.myqateam.ai/snapreport.team/k8s-manifests.git"
+      cd k8s-manifests
+      sed -i "s|image:.*prod/ifs-analyser:.*|image: ${IMAGE_NAME}:${IMAGE_TAG}|" "apps/prod/app-ifs-analyser.yaml"
+      git config user.email "ci@myqateam.ai"
+      git config user.name "GitLab CI"
+      git add .
+      git diff --cached --quiet || git commit -m "deploy: ifs-analyser-prod ${IMAGE_TAG}"
+      git push origin main
