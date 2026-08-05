@@ -84,6 +84,11 @@ export default function HistoryPanel({ history, loading, selected, onSelect, onC
                     <div className="flex items-center gap-2 mb-1">
                       <span className={`w-2 h-2 rounded-full shrink-0 ${dotColor}`} />
                       <span className="text-xs text-gray-400 truncate flex-1">{date}</span>
+                      {item.req_num && (
+                        <span className="shrink-0 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold text-gray-500">
+                          {item.req_num}
+                        </span>
+                      )}
                     </div>
                     {item.perimetre && (
                       <p className="text-xs text-blue-600 mb-0.5 truncate">{item.perimetre}</p>

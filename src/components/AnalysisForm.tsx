@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { createClient } from '@/lib/supabase';
+import { createClient } from '@/lib/supabase/client';
+import RequirementCombobox from './RequirementCombobox';
 
 export const DEFAULT_SYSTEM_PROMPT = `### RÔLE
 Tu es un Expert en Conformité IFS Food v8, en Europe. Ta mission est d'agir en tant que réviseur technique pour arbitrer des « observation » d'audit initialement notées en "D". chaque observation est liée à un périmètre d'audit, le process decrit dans le périmètre a une conséquence directe avec le risque et dangers identifié dans l'observation. qui doit etre pris en compte comme contexte.
@@ -30,48 +31,66 @@ Pour chaque observation soumise, tu dois suivre ce raisonnement :
 3. **Justification Constructive :** Rédige une explication technique concise expliquant pourquoi la note est maintenue ou aggravée.`;
 
 interface Props {
-  onSubmit: (observation: string, perimetre: string, req_text: string, tv_remarq: string, systemPrompt: string) => Promise<void>;
+  onSubmit: (
+    observation: string,
+    perimetre: string,
+    req_text: string,
+    req_num: string,
+    tv_remarq: string,
+    systemPrompt: string
+  ) => Promise<void>;
   loading: boolean;
 }
 
 export default function AnalysisForm({ onSubmit, loading }: Props) {
   const [observation, setObservation] = useState('');
   const [perimetre, setPerimetre] = useState('');
+  const [reqNum, setReqNum] = useState('');
   const [reqText, setReqText] = useState('');
   const [tvRemarq, setTvRemarq] = useState('');
   const [systemPrompt, setSystemPrompt] = useState<string>(() =>
     typeof window !== 'undefined'
-      ? (localStorage.getItem('ifs_system_prompt') ?? DEFAULT_SYSTEM_PROMPT)
+      ? localStorage.getItem('ifs_system_prompt') ?? DEFAULT_SYSTEM_PROMPT
       : DEFAULT_SYSTEM_PROMPT
   );
   const [showPromptEditor, setShowPromptEditor] = useState(false);
+  const userId = useRef<string | null>(null);
+  const loadedPrompt = useRef(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Load from Supabase on mount (Supabase is source of truth)
+  // Load this user's saved prompt from Supabase (source of truth across devices).
   useEffect(() => {
     const supabase = createClient();
-    supabase
-      .from('settings')
-      .select('value')
-      .eq('key', 'system_prompt')
-      .single()
-      .then(({ data }) => {
-        if (data?.value) {
-          setSystemPrompt(data.value);
-          localStorage.setItem('ifs_system_prompt', data.value);
-        }
-      });
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+      userId.current = user.id;
+      supabase
+        .from('user_settings')
+        .select('system_prompt')
+        .eq('user_id', user.id)
+        .maybeSingle()
+        .then(({ data }) => {
+          loadedPrompt.current = true;
+          if (data?.system_prompt) {
+            setSystemPrompt(data.system_prompt);
+            localStorage.setItem('ifs_system_prompt', data.system_prompt);
+          }
+        });
+    });
   }, []);
 
-  // Debounce save to Supabase + keep localStorage in sync
+  // Debounced save to Supabase + keep localStorage in sync.
   useEffect(() => {
     localStorage.setItem('ifs_system_prompt', systemPrompt);
+    // Don't write back before we've loaded the stored value (avoids clobbering).
+    if (!loadedPrompt.current || !userId.current) return;
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(async () => {
       const supabase = createClient();
-      await supabase
-        .from('settings')
-        .upsert({ key: 'system_prompt', value: systemPrompt });
+      await supabase.from('user_settings').upsert(
+        { user_id: userId.current!, system_prompt: systemPrompt, updated_at: new Date().toISOString() },
+        { onConflict: 'user_id' }
+      );
     }, 1000);
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current);
@@ -79,11 +98,12 @@ export default function AnalysisForm({ onSubmit, loading }: Props) {
   }, [systemPrompt]);
 
   const isModified = systemPrompt !== DEFAULT_SYSTEM_PROMPT;
+  const canSubmit = observation.trim() && perimetre.trim() && reqNum && reqText.trim();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!observation.trim() || !perimetre.trim() || !reqText.trim()) return;
-    await onSubmit(observation, perimetre, reqText, tvRemarq, systemPrompt);
+    if (!canSubmit) return;
+    await onSubmit(observation, perimetre, reqText, reqNum, tvRemarq, systemPrompt);
   }
 
   return (
@@ -94,13 +114,12 @@ export default function AnalysisForm({ onSubmit, loading }: Props) {
         <label className="block text-sm font-medium text-gray-700 mb-1.5">
           Exigence IFS <span className="text-red-500">*</span>
         </label>
-        <input
-          type="text"
-          value={reqText}
-          onChange={(e) => setReqText(e.target.value)}
-          placeholder="ex: L'organisation doit définir et mettre en œuvre un programme de nettoyage…"
-          className="w-full px-3 py-2 text-sm text-gray-900 placeholder-gray-400 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-          required
+        <RequirementCombobox
+          value={reqNum}
+          onChange={(num, text) => {
+            setReqNum(num);
+            setReqText(text);
+          }}
           disabled={loading}
         />
       </div>
@@ -191,7 +210,7 @@ export default function AnalysisForm({ onSubmit, loading }: Props) {
 
       <button
         type="submit"
-        disabled={loading || !observation.trim() || !perimetre.trim() || !reqText.trim()}
+        disabled={loading || !canSubmit}
         className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white text-sm font-medium rounded-lg transition-colors"
       >
         {loading ? (
@@ -207,7 +226,7 @@ export default function AnalysisForm({ onSubmit, loading }: Props) {
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
             </svg>
-            Analyser avec Gemini
+            Analyser avec Vertex AI
           </>
         )}
       </button>

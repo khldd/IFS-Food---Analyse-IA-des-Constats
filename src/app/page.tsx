@@ -1,21 +1,29 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import AnalysisForm from '@/components/AnalysisForm';
 import AnalysisResult from '@/components/AnalysisResult';
 import HistoryPanel from '@/components/HistoryPanel';
-import { createClient } from '@/lib/supabase';
+import { createClient } from '@/lib/supabase/client';
 import type { Analysis } from '@/types';
 
 export default function Home() {
+  const router = useRouter();
   const [history, setHistory] = useState<Analysis[]>([]);
   const [selected, setSelected] = useState<Analysis | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(true);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
 
   useEffect(() => {
-    async function fetchHistory() {
-      const supabase = createClient();
+    const supabase = createClient();
+    async function init() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      setUserEmail(user?.email ?? null);
+      // RLS scopes this to the signed-in user's own analyses.
       const { data } = await supabase
         .from('analyses')
         .select('*')
@@ -23,17 +31,24 @@ export default function Home() {
       setHistory(data ?? []);
       setLoadingHistory(false);
     }
-    fetchHistory();
+    init();
   }, []);
 
-  async function handleSubmit(observation: string, perimetre: string, req_text: string, tv_remarq: string, systemPrompt: string) {
+  async function handleSubmit(
+    observation: string,
+    perimetre: string,
+    req_text: string,
+    req_num: string,
+    tv_remarq: string,
+    systemPrompt: string
+  ) {
     setLoading(true);
     setSelected(null);
     try {
       const res = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ observation, perimetre, req_text, tv_remarq, systemPrompt }),
+        body: JSON.stringify({ observation, perimetre, req_text, req_num, tv_remarq, systemPrompt }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Erreur inconnue');
@@ -48,9 +63,17 @@ export default function Home() {
 
   async function handleClear() {
     const supabase = createClient();
+    // RLS restricts this delete to the current user's own rows.
     await supabase.from('analyses').delete().neq('id', '00000000-0000-0000-0000-000000000000');
     setHistory([]);
     setSelected(null);
+  }
+
+  async function handleSignOut() {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push('/login');
+    router.refresh();
   }
 
   return (
@@ -63,7 +86,20 @@ export default function Home() {
         </div>
         <div>
           <h1 className="text-sm font-semibold text-gray-900 leading-tight">IFS Food — Arbitrage NC (D vs Majeure)</h1>
-          <p className="text-xs text-gray-400">Analyse experte IFS Food v8 par Gemini</p>
+          <p className="text-xs text-gray-400">Analyse experte IFS Food v8 via Vertex AI</p>
+        </div>
+
+        <div className="ml-auto flex items-center gap-3">
+          {userEmail && <span className="hidden sm:inline text-xs text-gray-400">{userEmail}</span>}
+          <button
+            onClick={handleSignOut}
+            className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-500 transition-colors hover:border-gray-400 hover:text-gray-800"
+          >
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+            Déconnexion
+          </button>
         </div>
       </header>
 

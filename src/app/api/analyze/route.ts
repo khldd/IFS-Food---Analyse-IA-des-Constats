@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
-import { createClient } from '@supabase/supabase-js';
+import { SchemaType, VertexAI } from '@google-cloud/vertexai';
+import { createClient } from '@/lib/supabase/server';
 
 function extractGrade(text: string): 'D' | 'Majeure' | null {
   if (/requalifi[eé].*majeure|majeure/i.test(text)) return 'Majeure';
@@ -8,18 +8,58 @@ function extractGrade(text: string): 'D' | 'Majeure' | null {
   return null;
 }
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+function parseJsonObject(text: string): Record<string, unknown> {
+  const cleaned = text
+    .trim()
+    .replace(/^```json\s*/i, '')
+    .replace(/^```\s*/i, '')
+    .replace(/\s*```$/, '');
+  return JSON.parse(cleaned) as Record<string, unknown>;
+}
 
-function getSupabase() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
+function extractResponseText(response: {
+  candidates?: Array<{
+    content?: {
+      parts?: Array<{
+        text?: string;
+      }>;
+    };
+  }>;
+}): string {
+  return (
+    response.candidates?.[0]?.content?.parts
+      ?.map((part) => part.text ?? '')
+      .join('')
+      .trim() ?? ''
   );
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const { observation, perimetre, req_text, tv_remarq, systemPrompt } = await req.json();
+    const project = process.env.VERTEX_PROJECT_ID?.trim();
+    const location = process.env.VERTEX_LOCATION?.trim() || 'europe-west1';
+    const model = process.env.VERTEX_MODEL?.trim() || 'gemini-2.5-flash';
+    if (!project) {
+      return NextResponse.json(
+        { error: 'Configuration manquante: VERTEX_PROJECT_ID' },
+        { status: 500 }
+      );
+    }
+
+    // Auth is provided by Application Default Credentials.
+    // For local runs, set GOOGLE_APPLICATION_CREDENTIALS to your service-account JSON path.
+    const vertexAI = new VertexAI({ project, location });
+
+    // Require an authenticated user; the insert below is RLS-scoped to them.
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 });
+    }
+
+    const { observation, perimetre, req_text, req_num, tv_remarq, systemPrompt } = await req.json();
 
     if (!observation?.trim()) {
       return NextResponse.json({ error: "Le champ Observation est requis" }, { status: 400 });
@@ -32,13 +72,18 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Call 1: analyze agent ────────────────────────────────────────────────
-    const analyzeModel = genAI.getGenerativeModel({
-      model: 'gemini-3.1-flash-lite',
+    const analyzeModel = vertexAI.getGenerativeModel({
+      model,
       generationConfig: {
         temperature: 0.3,
         maxOutputTokens: 4096,
       },
-      systemInstruction: systemPrompt || `### RÔLE
+      systemInstruction: {
+        role: 'system',
+        parts: [
+          {
+            text:
+              systemPrompt || `### RÔLE
 Tu es un Expert en Conformité IFS Food v8, en Europe. Ta mission est d'agir en tant que réviseur technique pour arbitrer des « observation » d'audit initialement notées en "D". chaque observation est liée à un périmètre d'audit, le process decrit dans le périmètre a une conséquence directe avec le risque et dangers identifié dans l'observation. qui doit etre pris en compte comme contexte.
 
 ### OBJECTIF DE L'ANALYSE
@@ -63,6 +108,9 @@ Pour chaque observation soumise, tu dois suivre ce raisonnement :
    - Si l'absence (D) crée un danger direct, immédiat et non maîtrisé pour la santé du consommateur, la qualité du produit, ou la légalité du produit : **Requalifier en MAJEURE**.
    - Si l'absence est un manquement administratif ou structurel sans impact direct sur la sécurité immédiate du lot : **Maintenir en D**.
 3. **Justification Constructive :** Rédige une explication technique concise expliquant pourquoi la note est maintenue ou aggravée.`,
+          },
+        ],
+      },
     });
 
     const analyzeUserPrompt = `### DONNÉES D'ENTRÉE
@@ -72,13 +120,18 @@ Pour chaque observation soumise, tu dois suivre ce raisonnement :
 
 Analyse cette observation en utilisant STRICTEMENT le format markdown avec les 3 sections numérotées.`;
 
-    const analyzeResult = await analyzeModel.generateContent(analyzeUserPrompt);
-    const reasoning = analyzeResult.response.text();
+    const analyzeResult = await analyzeModel.generateContent({
+      contents: [{ role: 'user', parts: [{ text: analyzeUserPrompt }] }],
+    });
+    const reasoning = extractResponseText(analyzeResult.response);
+    if (!reasoning) {
+      throw new Error('Réponse analyse vide de Vertex AI');
+    }
     const grade = extractGrade(reasoning);
 
     // ── Call 2: critic agent ─────────────────────────────────────────────────
-    const criticModel = genAI.getGenerativeModel({
-      model: 'gemini-3.1-flash-lite',
+    const criticModel = vertexAI.getGenerativeModel({
+      model,
       generationConfig: {
         temperature: 0.3,
         maxOutputTokens: 400,
@@ -91,7 +144,11 @@ Analyse cette observation en utilisant STRICTEMENT le format markdown avec les 3
           required: ['diff'],
         },
       },
-      systemInstruction: `Tu es l'Expert Validateur Technique pour IFS Food v8.
+      systemInstruction: {
+        role: 'system',
+        parts: [
+          {
+            text: `Tu es l'Expert Validateur Technique pour IFS Food v8.
 
 TA MISSION :
 Lire l'analyse de l'IA (Output_AI) avec le commentaire du professionnel (TV remarq).
@@ -105,6 +162,9 @@ Si la réponse de l'IA (Output Ai), conclus que la notation "D" est appropriée,
 Si la réponse de l'IA (Output Ai), conclus qu'une non conformité majeure est recommandée, et que dans la colonne (TV remarq) il y a un commentaire pertinent avec cette analyse, tu réponds : L'analyse de l'IA ne valide pas la notation en D, et la demande de la VT est pertinente
 
 Si la réponse de l'IA (Output Ai), conclus qu'une non conformité majeure est recommandée, et que dans la colonne (TV remarq) il n'y a pas de commentaire (Null), tu réponds : L'analyse de l'IA ne valide pas la notation en D, Pas de remarque de la VT`,
+          },
+        ],
+      },
     });
 
     const criticUserPrompt = `DONNÉES À COMPARER :
@@ -114,18 +174,29 @@ Si la réponse de l'IA (Output Ai), conclus qu'une non conformité majeure est r
 
 Critique l'analyse de l'IA par rapport au commentaire pro.`;
 
-    const criticResult = await criticModel.generateContent(criticUserPrompt);
-    const criticJson = JSON.parse(criticResult.response.text()) as { diff: string };
-    const { diff } = criticJson;
+    const criticResult = await criticModel.generateContent({
+      contents: [{ role: 'user', parts: [{ text: criticUserPrompt }] }],
+    });
+    const criticText = extractResponseText(criticResult.response);
+    if (!criticText) {
+      throw new Error('Réponse critique vide de Vertex AI');
+    }
+    const criticJson = parseJsonObject(criticText) as { diff?: unknown };
+    const diffText = typeof criticJson.diff === 'string' ? criticJson.diff : '';
+    if (!diffText.trim()) {
+      throw new Error('Réponse critique invalide: champ diff manquant');
+    }
+    const diff = diffText;
 
-    // ── Save to Supabase ─────────────────────────────────────────────────────
-    const supabase = getSupabase();
+    // ── Save to Supabase (RLS enforces user_id = auth.uid()) ─────────────────
     const { data: inserted, error: dbError } = await supabase
       .from('analyses')
       .insert({
+        user_id:     user.id,
         observation: observation.trim(),
         perimetre:   perimetre.trim(),
         req_text:    req_text.trim(),
+        req_num:     req_num?.trim() || null,
         tv_remarq:   tv_remarq?.trim() || null,
         grade,
         reasoning,

@@ -30,6 +30,11 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+# Google / Vertex service account credentials
+gen-lang-client-*.json
+*service-account*.json
+*-credentials.json
+
 # env files (can opt-in for committing if needed)
 .env*
 

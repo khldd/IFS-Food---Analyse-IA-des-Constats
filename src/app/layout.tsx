@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "IFS Food — Analyse IA des Constats",
-  description: "Analyse experte IFS Food v8 par Gemini",
+  description: "Analyse experte IFS Food v8 via Vertex AI",
 };
 
 export default function RootLayout({
