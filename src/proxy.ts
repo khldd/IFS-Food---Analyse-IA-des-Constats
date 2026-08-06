@@ -32,6 +32,10 @@ export async function proxy(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const path = request.nextUrl.pathname;
+  // `/signup` is deliberately still listed even though the route was removed:
+  // it keeps the request falling through to a 404 instead of being redirected
+  // to /login. Accounts are created by an admin in Supabase Studio only, and
+  // the auth service enforces that with GOTRUE_DISABLE_SIGNUP=true.
   const isAuthRoute =
     path.startsWith('/login') || path.startsWith('/signup') || path.startsWith('/auth');
 
@@ -41,7 +45,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (user && (path === '/login' || path === '/signup')) {
+  if (user && path === '/login') {
     const url = request.nextUrl.clone();
     url.pathname = '/';
     return NextResponse.redirect(url);
