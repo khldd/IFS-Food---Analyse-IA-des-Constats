@@ -55,8 +55,6 @@ build-prod:
         --build-arg NEXT_PUBLIC_APP_ENV="production" \
         --build-arg NEXT_PUBLIC_SUPABASE_URL="${NEXT_PUBLIC_SUPABASE_URL}" \
         --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY="${NEXT_PUBLIC_SUPABASE_ANON_KEY}" \
-        --build-arg NEXT_PUBLIC_APP_URL="${NEXT_PUBLIC_APP_URL}" \
-        --build-arg NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL}" \
         --build-arg GIT_SHA="${CI_COMMIT_SHORT_SHA}" \
         -t "${IMAGE_NAME}:${IMAGE_TAG}" .
     - docker tag "${IMAGE_NAME}:${IMAGE_TAG}" "${IMAGE_NAME}:latest"
